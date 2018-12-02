@@ -230,6 +230,71 @@ local function ConstructSizer(frame)
   return top, topright, right, bottomright, bottom, bottomleft, left, topleft
 end
 
+local offsetIcons = {
+  x = {
+    [false] = [[Interface/MONEYFRAME/Arrow-Right-Up]],
+    [true] = [[Interface/MONEYFRAME/Arrow-Left-Up]]
+  },
+  y = {
+    [false] = [[Interface/Buttons/Arrow-Up-Up]],
+    [true] = [[Interface/Buttons/Arrow-Down-Up]]
+  }
+}
+local offsetBackdrop = {
+  bgFile = "Interface\\BUTTONS\\WHITE8X8.blp",
+  edgeFile = "Interface\\BUTTONS\\WHITE8X8.blp",
+  tile = false,
+  tileSize = 0,
+  edgeSize = 1,
+  insets = {
+    left = 0,
+    right = 0,
+    top = 0,
+    bottom = 0
+  }
+}
+
+local function ChangeOffset(data,axis,value,frame)
+  return function()
+    data[axis..'Offset'] = data[axis..'Offset'] + value
+    WeakAuras.Add(data);
+    WeakAuras.SetThumbnail(data)
+    frame.isMoving = true
+    frame.doneMoving()
+  end
+end
+
+local function ConstructOffsetButton(parent,axis,negative)
+  local button = CreateFrame("Button",nil,parent)
+  local direction = negative and 'minus' or 'plus'
+  button:SetSize(12,12)
+  local btnOffset = negative and -7 or 7
+  if axis == 'x' then
+    button:SetPoint("TOP", parent:GetParent(), "BOTTOM", btnOffset, -10)
+  else
+    button:SetPoint("LEFT", parent:GetParent(), "RIGHT", 10, btnOffset)
+  end
+  button:SetBackdrop(offsetBackdrop)
+  button:SetBackdropColor(0.1,0.1,0.1,1)
+  button:SetBackdropBorderColor(0,0,0,1)
+  button:SetScript("OnEnter", function() button:SetBackdropColor(0.3,0.3,0.3,1) end)
+  button:SetScript("OnLeave", function() button:SetBackdropColor(0.1,0.1,0.1,1) end)
+
+  local icon = button:CreateTexture(nil,"OVERLAY")
+  button.icon = icon
+  icon:SetTexture(offsetIcons[axis][negative])
+  icon:SetSize(12,12);
+  if axis == 'x' then
+    icon:SetPoint("LEFT", button, negative and -2 or 3, -1)
+  else
+    icon:SetPoint("BOTTOM", button, 1, negative and -4 or 2)
+  end
+
+
+  return button
+
+end
+
 local function ConstructMoverSizer(parent)
   local frame = CreateFrame("FRAME", nil, parent);
   frame:SetBackdrop({
@@ -267,6 +332,13 @@ local function ConstructMoverSizer(parent)
   mover.anchorPointIcon:SetWidth(16);
   mover.anchorPointIcon:SetHeight(16);
   mover.anchorPointIcon:SetTexCoord(0, 0.25, 0, 1);
+
+  -- Offset Icons
+  frame.offsets = CreateFrame("Frame",nil,mover)
+  frame.offsets.XPlus = ConstructOffsetButton(frame.offsets,"x",false)
+  frame.offsets.XMinus = ConstructOffsetButton(frame.offsets,"x",true)
+  frame.offsets.YPlus = ConstructOffsetButton(frame.offsets,"y",false)
+  frame.offsets.YMinus= ConstructOffsetButton(frame.offsets,"y",true)
 
   local moverText = mover:CreateFontString(nil, "OVERLAY", "GameFontNormal");
   mover.text = moverText;
@@ -393,10 +465,12 @@ local function ConstructMoverSizer(parent)
       mover:SetScript("OnMouseDown", nil);
       mover:SetScript("OnMouseUp", nil);
       mover:SetScript("OnEvent", nil);
+      frame.offsets:Hide()
     else
       mover:SetScript("OnMouseDown", mover.startMoving);
       mover:SetScript("OnMouseUp", mover.doneMoving);
       mover:SetScript("OnEvent", mover.doneMoving);
+      frame.offsets:Show()
     end
 
     if(region:IsResizable()) then
@@ -480,6 +554,11 @@ local function ConstructMoverSizer(parent)
       frame.left:SetScript("OnMouseUp", frame.doneSizing);
       frame.left:SetScript("OnEnter", frame.left.Highlight);
       frame.left:SetScript("OnLeave", frame.left.Clear);
+
+      frame.offsets.XPlus:SetScript("OnClick", ChangeOffset(data, 'x', 1, mover))
+      frame.offsets.XMinus:SetScript("OnClick", ChangeOffset(data, 'x', -1, mover))
+      frame.offsets.YPlus:SetScript("OnClick", ChangeOffset(data, 'y', 1, mover))
+      frame.offsets.YMinus:SetScript("OnClick", ChangeOffset(data, 'y', -1 , mover))
 
       frame.bottomleft:Show();
       frame.bottom:Show();
